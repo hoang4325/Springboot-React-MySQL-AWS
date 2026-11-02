@@ -1,0 +1,15 @@
+terraform {
+  backend "s3" {
+    bucket = "myapp-tfstate-051374769054-ap-southeast-1"
+
+    key = "bootstrap/terraform.tfstate"
+
+    region = "ap-southeast-1"
+
+    encrypt = true
+
+    kms_key_id = "arn:aws:kms:ap-southeast-1:123456789012:key/4901d100-af9c-4477-a2ac-52debc12fb66"
+
+    use_lockfile = true
+  }
+}
