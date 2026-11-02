@@ -5,6 +5,7 @@
 *.tfplan
 *.tfvars
 !*.tfvars.example
+**/backend.tf
 
 # Crash
 crash.log
