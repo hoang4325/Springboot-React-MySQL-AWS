@@ -39,6 +39,32 @@ resource "aws_iam_role_policy_attachment" "execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# SECRETS MANAGER ACCESS FOR TASK EXECUTION ROLE
+resource "aws_iam_policy" "secrets_access" {
+  count = length(var.secret_arns) > 0 ? 1 : 0
+  name  = "${var.name}-secrets-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "kms:Decrypt"
+        ]
+        Resource = var.secret_arns
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "secrets_access" {
+  count      = length(var.secret_arns) > 0 ? 1 : 0
+  role       = aws_iam_role.execution.name
+  policy_arn = aws_iam_policy.secrets_access[0].arn
+}
+
 # ECS TASK ROLE
 resource "aws_iam_role" "task" {
   name = "${var.name}-task-role"
@@ -90,6 +116,9 @@ resource "aws_ecs_task_definition" "this" {
         }
       ]
 
+      environment = var.environment
+      secrets     = var.secrets
+
       logConfiguration = {
         logDriver = "awslogs"
 
@@ -103,7 +132,8 @@ resource "aws_ecs_task_definition" "this" {
   ])
 
   depends_on = [
-    aws_iam_role_policy_attachment.execution
+    aws_iam_role_policy_attachment.execution,
+    aws_iam_role_policy_attachment.secrets_access
   ]
 }
 

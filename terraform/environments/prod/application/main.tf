@@ -20,10 +20,30 @@ data "terraform_remote_state" "registry" {
   }
 }
 
+# DATABASE REMOTE STATE
+data "terraform_remote_state" "database" {
+  backend = "s3"
+
+  config = {
+    bucket = var.state_bucket_name
+    key    = "prod/database/terraform.tfstate"
+    region = var.aws_region
+  }
+}
+
 locals {
   name = "${var.project_name}-prod-backend"
 
   image_uri = "${data.terraform_remote_state.registry.outputs.repository_url}:${var.image_tag}"
+
+  db_host = data.terraform_remote_state.database.outputs.db_address
+  db_port = tostring(data.terraform_remote_state.database.outputs.db_port)
+  db_name = data.terraform_remote_state.database.outputs.db_name
+  db_user = var.db_user
+
+  # If custom app_db_secret_arn is provided, use it; otherwise extract password from RDS master secret JSON (arn:aws:secretsmanager:...:password::)
+  db_secret_value_from = var.app_db_secret_arn != "" ? var.app_db_secret_arn : "${data.terraform_remote_state.database.outputs.master_secret_arn}:password::"
+  db_secret_iam_arn    = var.app_db_secret_arn != "" ? var.app_db_secret_arn : data.terraform_remote_state.database.outputs.master_secret_arn
 }
 
 # ALB MODULE
@@ -72,6 +92,29 @@ module "ecs_service" {
 
   cpu    = 256
   memory = 512
+
+  environment = [
+    { name = "SPRING_PROFILES_ACTIVE",        value = "docker" },
+    { name = "SERVER_PORT",                   value = tostring(var.app_port) },
+    { name = "DB_HOST",                       value = local.db_host },
+    { name = "DB_PORT",                       value = local.db_port },
+    { name = "DB_NAME",                       value = local.db_name },
+    { name = "DB_USER",                       value = local.db_user },
+    { name = "DB_USE_SSL",                    value = "true" },
+    { name = "DB_ALLOW_PUBLIC_KEY_RETRIEVAL", value = "false" },
+    { name = "DB_SSL_MODE",                   value = "REQUIRED" }
+  ]
+
+  secrets = [
+    {
+      name      = "DB_PASSWORD"
+      valueFrom = local.db_secret_value_from
+    }
+  ]
+
+  secret_arns = [
+    local.db_secret_iam_arn
+  ]
 
   depends_on = [
     module.alb

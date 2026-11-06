@@ -41,3 +41,27 @@ variable "memory" {
   type    = number
   default = 512
 }
+
+variable "environment" {
+  description = "Environment variables for the container"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
+
+variable "secrets" {
+  description = "Secrets for the container from AWS Secrets Manager or SSM"
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}
+
+variable "secret_arns" {
+  description = "List of Secrets Manager ARNs that the execution role is allowed to access"
+  type        = list(string)
+  default     = []
+}

@@ -30,3 +30,15 @@ variable "desired_count" {
   type    = number
   default = 1
 }
+
+variable "db_user" {
+  type        = string
+  description = "Application database username"
+  default     = "todouser"
+}
+
+variable "app_db_secret_arn" {
+  type        = string
+  description = "Optional ARN of Secrets Manager secret containing app DB password. If empty, uses RDS master secret"
+  default     = ""
+}
