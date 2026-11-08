@@ -42,22 +42,35 @@ resource "aws_iam_role_policy_attachment" "execution" {
 # SECRETS MANAGER ACCESS FOR TASK EXECUTION ROLE
 resource "aws_iam_policy" "secrets_access" {
   count = length(var.secret_arns) > 0 ? 1 : 0
-
-  name = "${var.name}-secrets-policy"
+  name  = "${var.name}-secrets-policy"
 
   policy = jsonencode({
     Version = "2012-10-17"
-
     Statement = [
       {
-        Sid    = "ReadApplicationSecrets"
         Effect = "Allow"
+        resource "aws_iam_policy" "secrets_access" {
+          count = length(var.secret_arns) > 0 ? 1 : 0
 
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
+          name = "${var.name}-secrets-policy"
 
-        Resource = var.secret_arns
+          policy = jsonencode({
+            Version = "2012-10-17"
+
+            Statement = [
+              {
+                Sid    = "ReadApplicationSecrets"
+                Effect = "Allow"
+
+                Action = [
+                  "secretsmanager:GetSecretValue"
+                ]
+
+                Resource = var.secret_arns
+              }
+            ]
+          })
+        }
       }
     ]
   })
