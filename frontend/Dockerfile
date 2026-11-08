@@ -7,7 +7,7 @@ WORKDIR /app
 # Copy package descriptors first for layer caching
 COPY package.json package-lock.json* ./
 
-RUN npm ci || npm install
+RUN npm ci 
 
 # Copy application source code
 COPY . .

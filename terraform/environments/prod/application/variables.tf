@@ -31,12 +31,6 @@ variable "desired_count" {
   default = 1
 }
 
-variable "db_user" {
-  description = "Application DB username"
-  type        = string
-  default     = "todouser"
-}
-
 variable "app_db_secret_arn" {
   description = "Secrets Manager ARN containing application DB credentials"
   type        = string

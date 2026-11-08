@@ -39,8 +39,6 @@ locals {
   db_host = data.terraform_remote_state.database.outputs.db_address
   db_port = tostring(data.terraform_remote_state.database.outputs.db_port)
   db_name = data.terraform_remote_state.database.outputs.db_name
-
-  db_secret_value_from = "${var.app_db_secret_arn}:password::"
 }
 
 # ALB MODULE
@@ -91,19 +89,40 @@ module "ecs_service" {
   memory = 512
 
   environment = [
-    { name = "SPRING_PROFILES_ACTIVE", value = "docker" },
-    { name = "SERVER_PORT", value = tostring(var.app_port) },
-    { name = "DB_HOST", value = local.db_host },
-    { name = "DB_PORT", value = local.db_port },
-    { name = "DB_NAME", value = local.db_name },
-    { name = "DB_USER", value = var.db_user },
-    { name = "DB_SSL_MODE", value = "REQUIRED" }
+    {
+      name  = "SPRING_PROFILES_ACTIVE"
+      value = "docker"
+    },
+    {
+      name  = "SERVER_PORT"
+      value = tostring(var.app_port)
+    },
+    {
+      name  = "DB_HOST"
+      value = local.db_host
+    },
+    {
+      name  = "DB_PORT"
+      value = local.db_port
+    },
+    {
+      name  = "DB_NAME"
+      value = local.db_name
+    },
+    {
+      name  = "DB_SSL_MODE"
+      value = "REQUIRED"
+    }
   ]
 
   secrets = [
     {
+      name      = "DB_USER"
+      valueFrom = "${var.app_db_secret_arn}:username::"
+    },
+    {
       name      = "DB_PASSWORD"
-      valueFrom = local.db_secret_value_from
+      valueFrom = "${var.app_db_secret_arn}:password::"
     }
   ]
 
