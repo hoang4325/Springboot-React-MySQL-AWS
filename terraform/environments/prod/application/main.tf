@@ -39,11 +39,8 @@ locals {
   db_host = data.terraform_remote_state.database.outputs.db_address
   db_port = tostring(data.terraform_remote_state.database.outputs.db_port)
   db_name = data.terraform_remote_state.database.outputs.db_name
-  db_user = var.db_user
 
-  # If custom app_db_secret_arn is provided, use it; otherwise extract password from RDS master secret JSON (arn:aws:secretsmanager:...:password::)
-  db_secret_value_from = var.app_db_secret_arn != "" ? var.app_db_secret_arn : "${data.terraform_remote_state.database.outputs.master_secret_arn}:password::"
-  db_secret_iam_arn    = var.app_db_secret_arn != "" ? var.app_db_secret_arn : data.terraform_remote_state.database.outputs.master_secret_arn
+  db_secret_value_from = "${var.app_db_secret_arn}:password::"
 }
 
 # ALB MODULE
@@ -94,15 +91,13 @@ module "ecs_service" {
   memory = 512
 
   environment = [
-    { name = "SPRING_PROFILES_ACTIVE",        value = "docker" },
-    { name = "SERVER_PORT",                   value = tostring(var.app_port) },
-    { name = "DB_HOST",                       value = local.db_host },
-    { name = "DB_PORT",                       value = local.db_port },
-    { name = "DB_NAME",                       value = local.db_name },
-    { name = "DB_USER",                       value = local.db_user },
-    { name = "DB_USE_SSL",                    value = "true" },
-    { name = "DB_ALLOW_PUBLIC_KEY_RETRIEVAL", value = "false" },
-    { name = "DB_SSL_MODE",                   value = "REQUIRED" }
+    { name = "SPRING_PROFILES_ACTIVE", value = "docker" },
+    { name = "SERVER_PORT", value = tostring(var.app_port) },
+    { name = "DB_HOST", value = local.db_host },
+    { name = "DB_PORT", value = local.db_port },
+    { name = "DB_NAME", value = local.db_name },
+    { name = "DB_USER", value = var.db_user },
+    { name = "DB_SSL_MODE", value = "REQUIRED" }
   ]
 
   secrets = [
@@ -113,7 +108,7 @@ module "ecs_service" {
   ]
 
   secret_arns = [
-    local.db_secret_iam_arn
+    var.app_db_secret_arn
   ]
 
   depends_on = [

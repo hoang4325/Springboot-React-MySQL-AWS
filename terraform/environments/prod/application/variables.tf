@@ -32,13 +32,18 @@ variable "desired_count" {
 }
 
 variable "db_user" {
+  description = "Application DB username"
   type        = string
-  description = "Application database username"
   default     = "todouser"
 }
 
 variable "app_db_secret_arn" {
+  description = "Secrets Manager ARN containing application DB credentials"
   type        = string
-  description = "Optional ARN of Secrets Manager secret containing app DB password. If empty, uses RDS master secret"
-  default     = ""
+
+  validation {
+    condition     = length(trimspace(var.app_db_secret_arn)) > 0
+    error_message = "Application database secret ARN is required."
+  }
 }
+
