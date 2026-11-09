@@ -5,45 +5,45 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
-        timeout(time: 90, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '15'))
+        timeout(time: 90, unit: 'MINUTES')
         skipDefaultCheckout(true)
+    }
+
+    triggers {
+        githubPush()
     }
 
     parameters {
         choice(
             name: 'ACTION',
             choices: ['ci', 'deploy'],
-            description: 'ci = check only; deploy = deploy after approval'
+            description: 'ci: test/validate only; deploy: AWS deployment with approval'
         )
 
         choice(
             name: 'TARGET',
             choices: ['all', 'backend', 'frontend'],
-            description: 'Deployment target'
+            description: 'Which application component to deploy'
         )
 
         string(
             name: 'AWS_REGION',
             defaultValue: 'ap-southeast-1',
-            description: 'AWS Region'
+            description: 'AWS region'
         )
 
         string(
             name: 'PROJECT_NAME',
             defaultValue: 'myapp',
-            description: 'Terraform project name'
+            description: 'Terraform project prefix'
         )
     }
 
     environment {
         TF_IN_AUTOMATION = 'true'
-        TF_INPUT = '0'
-        AWS_PAGER = ''
-
-        // Configure TF_STATE_BUCKET in Jenkins Global Environment.
-        // AWS credentials should come from an IAM Role
-        // or Jenkins Credentials, not from the repository.
+        TF_INPUT         = '0'
+        AWS_PAGER        = ''
     }
 
     stages {
@@ -53,34 +53,38 @@ pipeline {
         // ==========================================
         stage('Checkout') {
             steps {
-                checkout scm
-
                 script {
+                    def scmInfo = checkout scm
+
+                    env.SCM_BRANCH = env.BRANCH_NAME ?:
+                        (scmInfo.GIT_BRANCH ?: env.GIT_BRANCH ?: '')
+
                     env.IMAGE_TAG = 'sha-' + sh(
                         script: 'git rev-parse --short=12 HEAD',
                         returnStdout: true
                     ).trim()
-                }
 
-                echo "Image tag: ${env.IMAGE_TAG}"
-                echo "Action: ${params.ACTION}"
-                echo "Target: ${params.TARGET}"
+                    echo "Branch: ${env.SCM_BRANCH}"
+                    echo "Image tag: ${env.IMAGE_TAG}"
+                }
             }
         }
 
         // ==========================================
-        // 2. CHECK BUILD TOOLS
+        // 2. CHECK REQUIRED TOOLS
         // ==========================================
-        stage('Tool versions') {
+        stage('Check tool versions') {
             steps {
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 java -version
 node --version
 npm --version
-terraform version | head -n 2
+docker --version
+terraform version | head -n 1
 aws --version
+curl --version | head -n 1
 '''
             }
         }
@@ -88,9 +92,9 @@ aws --version
         // ==========================================
         // 3. BACKEND UNIT TESTS
         // ==========================================
-        stage('Backend unit tests') {
+        stage('Backend tests') {
             steps {
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 cd backend
@@ -106,9 +110,9 @@ chmod +x mvnw
         // ==========================================
         // 4. FRONTEND BUILD
         // ==========================================
-        stage('Frontend build') {
+        stage('Build frontend') {
             steps {
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 cd frontend
@@ -121,26 +125,26 @@ VITE_API_BASE_URL=/api/v1 npm run build
         }
 
         // ==========================================
-        // 5. TERRAFORM VALIDATION
+        // 5. VALIDATE TERRAFORM
         // ==========================================
-        stage('Terraform validation') {
+        stage('Validate Terraform') {
             steps {
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-for stack in application frontend; do
+for stack in networking database registry application frontend; do
 
-    path="terraform/environments/prod/$stack"
+    dir="terraform/environments/prod/$stack"
 
-    rm -f "$path/backend.tf"
-    rm -rf "$path/.terraform"
+    echo "Validating $dir"
 
-    terraform -chdir="$path" init \
+    terraform -chdir="$dir" init \
         -backend=false \
         -input=false \
-        -no-color
+        -no-color \
+        -lockfile=readonly
 
-    terraform -chdir="$path" validate \
+    terraform -chdir="$dir" validate \
         -no-color
 
 done
@@ -149,9 +153,31 @@ done
         }
 
         // ==========================================
-        // 6. DEPLOY APPROVAL
+        // 6. CI DOCKER BUILD
         // ==========================================
-        stage('Deploy approval and AWS preflight') {
+        stage('CI Docker build') {
+            when {
+                expression {
+                    params.ACTION == 'ci'
+                }
+            }
+
+            steps {
+                sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+docker build \
+    --platform linux/amd64 \
+    -t "todo-backend-ci:${IMAGE_TAG}" \
+    ./backend
+'''
+            }
+        }
+
+        // ==========================================
+        // 7. DEPLOYMENT APPROVAL
+        // ==========================================
+        stage('Approve AWS deployment') {
             when {
                 expression {
                     params.ACTION == 'deploy'
@@ -160,49 +186,59 @@ done
 
             steps {
                 script {
-                    def gitBranch = (
-                        env.BRANCH_NAME ?: env.GIT_BRANCH ?: ''
-                    ).replaceFirst('^origin/', '')
+                    def branch = (env.SCM_BRANCH ?: '')
+                        .replaceFirst('^refs/heads/', '')
+                        .replaceFirst('^refs/remotes/', '')
+                        .replaceFirst('^origin/', '')
 
-                    if (gitBranch != 'main' || env.CHANGE_ID) {
+                    if (branch != 'main' || env.CHANGE_ID) {
                         error(
-                            "Deployment allowed only from main: ${gitBranch}"
+                            "Deployment is permitted only from main; checked out: ${env.SCM_BRANCH}"
                         )
                     }
 
                     if (!env.TF_STATE_BUCKET?.trim()) {
                         error(
-                            'TF_STATE_BUCKET is not configured in Jenkins'
+                            'Missing Jenkins environment variable TF_STATE_BUCKET'
+                        )
+                    }
+
+                    if (!env.TF_STATE_KMS_KEY_ARN?.trim()) {
+                        error(
+                            'Missing Jenkins environment variable TF_STATE_KMS_KEY_ARN'
                         )
                     }
                 }
 
                 input(
-                    message: "Deploy ${params.TARGET} to AWS ${params.AWS_REGION}?",
+                    message: "Deploy ${params.TARGET} to AWS (${params.AWS_REGION})?",
                     ok: 'Deploy'
                 )
 
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
-
-command -v docker
-command -v aws
-command -v terraform
 
 aws sts get-caller-identity \
     --query '{Account:Account,Arn:Arn}' \
     --output json
 
 aws s3api head-bucket \
-    --bucket "$TF_STATE_BUCKET"
+    --bucket "$TF_STATE_BUCKET" \
+    --region "$AWS_REGION"
+
+aws kms describe-key \
+    --key-id "$TF_STATE_KMS_KEY_ARN" \
+    --region "$AWS_REGION" \
+    --query 'KeyMetadata.KeyState' \
+    --output text
 '''
             }
         }
 
         // ==========================================
-        // 7. BUILD & PUSH BACKEND IMAGE TO ECR
+        // 8. BUILD & PUSH BACKEND IMAGE TO ECR
         // ==========================================
-        stage('Build and push backend image to ECR') {
+        stage('Push backend image to ECR') {
             when {
                 expression {
                     params.ACTION == 'deploy' &&
@@ -211,7 +247,7 @@ aws s3api head-bucket \
             }
 
             steps {
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 repo_name="${PROJECT_NAME}-prod-backend"
@@ -230,7 +266,7 @@ if aws ecr describe-images \
     --image-ids "imageTag=$IMAGE_TAG" \
     >/dev/null 2>&1; then
 
-    echo "Image already exists: $image_uri"
+    echo "Immutable image already present: $image_uri"
 
 else
 
@@ -240,7 +276,7 @@ else
         ./backend
 
     aws ecr get-login-password \
-        --region "$AWS_REGION" |
+        --region "$AWS_REGION" | \
         docker login \
             --username AWS \
             --password-stdin \
@@ -254,9 +290,9 @@ fi
         }
 
         // ==========================================
-        // 8. DEPLOY BACKEND USING TERRAFORM
+        // 9. DEPLOY BACKEND: ECS + ALB
         // ==========================================
-        stage('Terraform apply application / ECS') {
+        stage('Terraform deploy Application (ECS + ALB)') {
             when {
                 expression {
                     params.ACTION == 'deploy' &&
@@ -265,17 +301,19 @@ fi
             }
 
             steps {
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-stack="terraform/environments/prod/application"
+stack='terraform/environments/prod/application'
 
-cat > "$stack/backend.tf" <<'EOF'
+# Generate Terraform S3 backend configuration
+cat > "$stack/backend.tf" <<'HCL'
 terraform {
   backend "s3" {}
 }
-EOF
+HCL
 
+# Initialize Terraform remote state
 terraform -chdir="$stack" init \
     -reconfigure \
     -input=false \
@@ -284,8 +322,10 @@ terraform -chdir="$stack" init \
     -backend-config="key=prod/application/terraform.tfstate" \
     -backend-config="region=$AWS_REGION" \
     -backend-config="encrypt=true" \
+    -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN" \
     -backend-config="use_lockfile=true"
 
+# Terraform plan
 terraform -chdir="$stack" plan \
     -input=false \
     -no-color \
@@ -295,26 +335,31 @@ terraform -chdir="$stack" plan \
     -var="state_bucket_name=$TF_STATE_BUCKET" \
     -var="image_tag=$IMAGE_TAG"
 
+# Terraform apply
 terraform -chdir="$stack" apply \
     -input=false \
     -no-color \
     deploy.tfplan
 
+# Get ECS outputs
 cluster=$(terraform -chdir="$stack" output -raw ecs_cluster_name)
+
 service=$(terraform -chdir="$stack" output -raw ecs_service_name)
 
+# Wait until ECS service is stable
 aws ecs wait services-stable \
     --region "$AWS_REGION" \
     --cluster "$cluster" \
     --services "$service"
 
+# Verify backend health
 api_url=$(terraform -chdir="$stack" output -raw application_url)
 
 curl \
     --fail \
     --silent \
     --show-error \
-    --retry 18 \
+    --retry 12 \
     --retry-delay 10 \
     --retry-all-errors \
     "$api_url/actuator/health"
@@ -325,9 +370,9 @@ echo "Backend API: $api_url"
         }
 
         // ==========================================
-        // 9. DEPLOY FRONTEND
+        // 10. DEPLOY FRONTEND: S3 + CLOUDFRONT
         // ==========================================
-        stage('Terraform apply frontend / CloudFront') {
+        stage('Terraform deploy Frontend (S3 + CloudFront)') {
             when {
                 expression {
                     params.ACTION == 'deploy' &&
@@ -336,17 +381,19 @@ echo "Backend API: $api_url"
             }
 
             steps {
-                sh '''#!/bin/bash
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-stack="terraform/environments/prod/frontend"
+stack='terraform/environments/prod/frontend'
 
-cat > "$stack/backend.tf" <<'EOF'
+# Generate Terraform S3 backend configuration
+cat > "$stack/backend.tf" <<'HCL'
 terraform {
   backend "s3" {}
 }
-EOF
+HCL
 
+# Initialize Terraform remote state
 terraform -chdir="$stack" init \
     -reconfigure \
     -input=false \
@@ -355,8 +402,10 @@ terraform -chdir="$stack" init \
     -backend-config="key=prod/frontend/terraform.tfstate" \
     -backend-config="region=$AWS_REGION" \
     -backend-config="encrypt=true" \
+    -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN" \
     -backend-config="use_lockfile=true"
 
+# Terraform plan
 terraform -chdir="$stack" plan \
     -input=false \
     -no-color \
@@ -365,57 +414,54 @@ terraform -chdir="$stack" plan \
     -var="project_name=$PROJECT_NAME" \
     -var="state_bucket_name=$TF_STATE_BUCKET"
 
+# Terraform apply
 terraform -chdir="$stack" apply \
     -input=false \
     -no-color \
     deploy.tfplan
 
+# Get Terraform outputs
 bucket=$(terraform -chdir="$stack" output -raw s3_bucket_name)
 
 distribution=$(terraform -chdir="$stack" output -raw cloudfront_distribution_id)
 
+# Upload React static files to S3
 aws s3 sync \
     frontend/dist \
     "s3://$bucket/" \
     --delete \
     --region "$AWS_REGION"
 
+# Invalidate CloudFront cache
 aws cloudfront create-invalidation \
     --distribution-id "$distribution" \
     --paths '/*'
 
 frontend_url=$(terraform -chdir="$stack" output -raw frontend_url)
 
-echo "Frontend: $frontend_url"
+echo "Frontend URL: $frontend_url"
 '''
             }
         }
     }
 
     // ==========================================
-    // POST BUILD
+    // PIPELINE RESULT & CLEANUP
     // ==========================================
     post {
-
         success {
-            echo "Pipeline succeeded"
+            echo "Pipeline completed successfully"
             echo "ACTION=${params.ACTION}"
             echo "TARGET=${params.TARGET}"
         }
 
         failure {
-            echo 'Pipeline failed. Check Jenkins logs.'
-            echo 'For ECS errors, check ECS events and CloudWatch logs.'
+            echo 'Pipeline failed'
+            echo 'Check Jenkins console output, ECS events and CloudWatch logs'
         }
 
-        cleanup {
-            sh '''#!/bin/bash
-set +e
-
-rm -f terraform/environments/prod/application/deploy.tfplan
-
-rm -f terraform/environments/prod/frontend/deploy.tfplan
-'''
+        always {
+            deleteDir()
         }
     }
 }
