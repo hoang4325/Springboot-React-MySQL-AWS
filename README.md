@@ -5,9 +5,6 @@ Dự án được thiết kế để triển khai một ứng dụng Todo List F
 Kiến trúc sử dụng các thành phần chính:
 
 - **Amazon VPC**
-- **Public Subnets / Private Subnets**
-- **Internet Gateway**
-- **NAT Gateway**
 - **Application Load Balancer (ALB)**
 - **Amazon ECS Fargate**
 - **Amazon RDS MySQL**
@@ -269,10 +266,3 @@ Triển khai:
 - Hỗ trợ **Multi-AZ** cho database
 - Hỗ trợ scale ứng dụng theo hướng containerized trên **ECS Fargate**
 - Dễ tái triển khai hoặc destroy toàn bộ hạ tầng bằng Terraform
-
----
-
-## 8. Ghi chú
-
-- Các hình trong thư mục `docs/` mô tả kiến trúc triển khai và định hướng thiết kế hệ thống trên AWS.
-- Đây là kiến trúc phù hợp cho mục tiêu học tập và thực hành triển khai Fullstack application trên AWS bằng Terraform.
