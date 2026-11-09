@@ -30,9 +30,3 @@ variable "desired_count" {
   type    = number
   default = 1
 }
-
-variable "cors_allowed_origins" {
-  description = "Allowed frontend origins"
-  type        = string
-  default     = "http://localhost:3000,http://localhost:5173"
-}

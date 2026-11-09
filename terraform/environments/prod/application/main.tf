@@ -113,10 +113,6 @@ module "ecs_service" {
     {
       name  = "DB_SSL_MODE"
       value = "REQUIRED"
-    },
-    {
-      name  = "CORS_ALLOWED_ORIGINS"
-      value = var.cors_allowed_origins
     }
   ]
 
