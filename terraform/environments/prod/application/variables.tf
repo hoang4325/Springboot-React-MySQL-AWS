@@ -31,13 +31,4 @@ variable "desired_count" {
   default = 1
 }
 
-variable "app_db_secret_arn" {
-  description = "Secrets Manager ARN containing application DB credentials"
-  type        = string
-
-  validation {
-    condition     = length(trimspace(var.app_db_secret_arn)) > 0
-    error_message = "Application database secret ARN is required."
-  }
-}
 

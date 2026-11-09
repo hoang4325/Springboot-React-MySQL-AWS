@@ -36,9 +36,10 @@ locals {
 
   image_uri = "${data.terraform_remote_state.registry.outputs.repository_url}:${var.image_tag}"
 
-  db_host = data.terraform_remote_state.database.outputs.db_address
-  db_port = tostring(data.terraform_remote_state.database.outputs.db_port)
-  db_name = data.terraform_remote_state.database.outputs.db_name
+  db_host       = data.terraform_remote_state.database.outputs.db_address
+  db_port       = tostring(data.terraform_remote_state.database.outputs.db_port)
+  db_name       = data.terraform_remote_state.database.outputs.db_name
+  db_secret_arn = data.terraform_remote_state.database.outputs.master_secret_arn
 }
 
 # ALB MODULE
@@ -118,16 +119,16 @@ module "ecs_service" {
   secrets = [
     {
       name      = "DB_USER"
-      valueFrom = "${var.app_db_secret_arn}:username::"
+      valueFrom = "${local.db_secret_arn}:username::"
     },
     {
       name      = "DB_PASSWORD"
-      valueFrom = "${var.app_db_secret_arn}:password::"
+      valueFrom = "${local.db_secret_arn}:password::"
     }
   ]
 
   secret_arns = [
-    var.app_db_secret_arn
+    local.db_secret_arn
   ]
 
   depends_on = [
