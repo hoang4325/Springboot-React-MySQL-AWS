@@ -63,6 +63,31 @@ resource "aws_cloudfront_function" "spa_rewrite" {
   code = file("${path.module}/spa-rewrite.js")
 }
 
+# API ORIGIN REQUEST POLICY
+resource "aws_cloudfront_origin_request_policy" "api" {
+  name    = "${var.name}-api-policy"
+  comment = "Forward API requests without Host and Origin headers"
+
+  cookies_config {
+    cookie_behavior = "all"
+  }
+
+  headers_config {
+    header_behavior = "allExcept"
+
+    headers {
+      items = [
+        "Host",
+        "Origin"
+      ]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
+
 # CLOUDFRONT DISTRIBUTION
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
@@ -157,7 +182,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
 
     # Forward headers except Host, all cookies and query strings
-    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.api.id
   }
 
   restrictions {
