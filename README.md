@@ -119,6 +119,7 @@ Các subnet DB không public ra Internet và chỉ phục vụ kết nối nội
   - Cho phép Public Subnets giao tiếp với Internet
 - **NAT Gateway**
   - Cho phép ECS trong private subnets truy cập outbound Internet khi cần
+  - Mặc định cho production sử dụng `single_nat_gateway = false` (2 NAT Gateway trên 2 AZ để đảm bảo High Availability). Khi chạy demo/lab, có thể đặt `single_nat_gateway = true` để tiết kiệm chi phí (~50% phí NAT Gateway), với đánh đổi là NAT Gateway trở thành điểm lỗi đơn (single point of failure) cho lưu lượng outbound của cả hai AZ nếu AZ đặt NAT gặp sự cố.
 - **DB Subnet Group**
   - Gom các DB subnets để triển khai RDS Multi-AZ
 

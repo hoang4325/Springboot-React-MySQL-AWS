@@ -230,6 +230,12 @@ docker build \
                             'Missing Jenkins environment variable TF_STATE_KMS_KEY_ARN'
                         )
                     }
+
+                    if ((params.TARGET in ['all', 'backend']) && !env.ALERT_EMAIL?.trim()) {
+                        error(
+                            'Missing Jenkins environment variable ALERT_EMAIL'
+                        )
+                    }
                 }
 
                 input(
@@ -358,7 +364,8 @@ terraform -chdir="$stack" plan \
     -var="aws_region=$AWS_REGION" \
     -var="project_name=$PROJECT_NAME" \
     -var="state_bucket_name=$TF_STATE_BUCKET" \
-    -var="image_tag=$IMAGE_TAG"
+    -var="image_tag=$IMAGE_TAG" \
+    -var="alert_email=$ALERT_EMAIL"
 
 # Terraform apply
 terraform -chdir="$stack" apply \
