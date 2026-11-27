@@ -65,3 +65,8 @@ variable "secret_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "max_count" {
+  type    = number
+  default = 4
+}

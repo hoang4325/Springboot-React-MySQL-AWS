@@ -28,5 +28,10 @@ variable "health_check_path" {
 
 variable "desired_count" {
   type    = number
-  default = 1
+  default = 2
+}
+
+variable "max_count" {
+  type    = number
+  default = 4
 }

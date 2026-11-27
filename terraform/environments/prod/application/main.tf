@@ -85,6 +85,7 @@ module "ecs_service" {
 
   container_port = var.app_port
   desired_count  = var.desired_count
+  max_count      = var.max_count
 
   cpu    = 256
   memory = 512
