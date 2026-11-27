@@ -94,7 +94,7 @@ resource "aws_route_table_association" "public" {
 locals {
   nat_azs = var.single_nat_gateway ? {
     a = true
-  } : {
+    } : {
     a = true
     b = true
   }

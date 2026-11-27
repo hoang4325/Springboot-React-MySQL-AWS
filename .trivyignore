@@ -1,0 +1,22 @@
+# Accepted Trivy findings for lab/demo AWS architecture.
+# Each entry documents why the finding is accepted rather than suppressed globally.
+
+# ALB HTTP listener (port 80) is used because no custom domain / ACM certificate is provisioned yet.
+# Mitigated by restricting ALB SG ingress to CloudFront Managed Prefix List and requiring X-Origin-Verify header.
+AVD-AWS-0054
+
+# ALB must be internet-facing (internal = false) for CloudFront custom origin connectivity.
+# Direct internet access is blocked by CloudFront origin-facing prefix list + X-Origin-Verify header.
+AVD-AWS-0053
+
+# CloudFront WAF (AWS WAFv2) is omitted to keep lab costs minimal.
+AVD-AWS-0011
+
+# CloudWatch Log Groups use default AWS-managed encryption instead of a customer-managed KMS key to avoid extra CMK costs.
+AVD-AWS-0017
+
+# ECS tasks in private subnets require outbound 0.0.0.0/0 egress (via NAT Gateway) for ECR, Secrets Manager, and CloudWatch.
+AVD-AWS-0104
+
+# Frontend S3 bucket uses SSE-S3 (AES256) instead of KMS CMK to keep CloudFront OAC setup simple and cost-free.
+AVD-AWS-0132

@@ -153,6 +153,28 @@ done
         }
 
         // ==========================================
+        // 6. SECURITY SCAN
+        // ==========================================
+        stage('Security scan') {
+            steps {
+                sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+terraform fmt -check -recursive terraform
+
+docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+    detect --source /repo --redact --no-banner
+
+docker run --rm -v "$PWD:/src" semgrep/semgrep \
+    semgrep scan --config auto --error --quiet /src/backend /src/frontend/src
+
+docker run --rm -v "$PWD:/repo" aquasec/trivy:latest \
+    config --ignorefile /repo/.trivyignore --severity HIGH,CRITICAL --exit-code 1 /repo/terraform
+'''
+            }
+        }
+
+        // ==========================================
         // 6. CI DOCKER BUILD
         // ==========================================
         stage('CI Docker build') {
@@ -274,6 +296,9 @@ else
         --platform linux/amd64 \
         -t "$image_uri" \
         ./backend
+
+    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest \
+        image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed "$image_uri"
 
     aws ecr get-login-password \
         --region "$AWS_REGION" | \

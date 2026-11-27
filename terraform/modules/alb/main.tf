@@ -11,6 +11,7 @@ resource "aws_lb" "this" {
   subnets = var.public_subnet_ids
 
   enable_deletion_protection = var.deletion_protection
+  drop_invalid_header_fields = true
 
   tags = {
     Name = "${var.name}-alb"
