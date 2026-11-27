@@ -3,11 +3,9 @@ data "terraform_remote_state" "networking" {
   backend = "s3"
 
   config = {
-    bucket = "myapp-tfstate-051374769054-ap-southeast-1"
-
-    key = "prod/networking/terraform.tfstate"
-
-    region = "ap-southeast-1"
+    bucket = var.state_bucket_name
+    key    = "prod/networking/terraform.tfstate"
+    region = var.aws_region
   }
 }
 
