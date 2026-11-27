@@ -40,26 +40,17 @@ resource "aws_security_group" "bastion" {
 }
 
 # ALB RULES
-resource "aws_vpc_security_group_ingress_rule" "alb_http" {
-  security_group_id = aws_security_group.alb.id
-
-  cidr_ipv4   = "0.0.0.0/0"
-  from_port   = 80
-  to_port     = 80
-  ip_protocol = "tcp"
-
-  description = "HTTP from Internet"
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
 }
 
-resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+resource "aws_vpc_security_group_ingress_rule" "alb_http_from_cloudfront" {
   security_group_id = aws_security_group.alb.id
-
-  cidr_ipv4   = "0.0.0.0/0"
-  from_port   = 443
-  to_port     = 443
-  ip_protocol = "tcp"
-
-  description = "HTTPS from Internet"
+  prefix_list_id    = data.aws_ec2_managed_prefix_list.cloudfront.id
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+  description       = "HTTP from CloudFront only"
 }
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_ecs" {
