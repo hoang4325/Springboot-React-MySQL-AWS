@@ -19,3 +19,9 @@ variable "price_class" {
   type        = string
   default     = "PriceClass_100"
 }
+
+variable "origin_verify_secret" {
+  description = "Shared secret header sent from CloudFront to ALB"
+  type        = string
+  sensitive   = true
+}

@@ -42,6 +42,12 @@ locals {
   db_secret_arn = data.terraform_remote_state.database.outputs.master_secret_arn
 }
 
+# ORIGIN VERIFY SECRET (CloudFront -> ALB)
+resource "random_password" "origin_verify" {
+  length  = 32
+  special = false
+}
+
 # ALB MODULE
 module "alb" {
   source = "../../../modules/alb"
@@ -60,8 +66,9 @@ module "alb" {
     data.terraform_remote_state.networking.outputs.alb_security_group_id
   )
 
-  app_port          = var.app_port
-  health_check_path = var.health_check_path
+  app_port             = var.app_port
+  health_check_path    = var.health_check_path
+  origin_verify_secret = random_password.origin_verify.result
 }
 
 # ECS MODULE

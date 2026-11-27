@@ -28,3 +28,8 @@ variable "deletion_protection" {
   type    = bool
   default = false
 }
+
+variable "origin_verify_secret" {
+  type      = string
+  sensitive = true
+}

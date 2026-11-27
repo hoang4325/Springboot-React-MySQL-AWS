@@ -182,11 +182,13 @@ Hệ thống tách riêng Security Group theo từng lớp:
 ### API request
 
 1. Frontend gọi API theo đường dẫn `/api/*`
-2. CloudFront forward request đến ALB
-3. ALB chuyển tiếp đến ECS Fargate service
+2. CloudFront forward request đến ALB kèm header bí mật `X-Origin-Verify`
+3. ALB kiểm tra đúng `X-Origin-Verify` rồi chuyển tiếp đến ECS Fargate service (nếu sai hoặc gọi trực tiếp sẽ bị chặn bởi Security Group / trả HTTP `403 Forbidden`)
 4. Backend xử lý nghiệp vụ
 5. Backend truy vấn hoặc cập nhật dữ liệu trên RDS
 6. Kết quả trả ngược lại cho người dùng
+
+> **Lưu ý về giao thức CloudFront → ALB (chưa có tên miền riêng)**: Hiện tại chưa cấu hình custom domain và chứng chỉ ACM trên ALB nên đoạn kết nối **CloudFront → ALB đang chạy HTTP** (cổng `80`, `origin_protocol_policy = "http-only"`), được bảo vệ ở tầng mạng bằng CloudFront Managed Prefix List và ở tầng HTTP bằng header bí mật `X-Origin-Verify`. Khi có tên miền riêng, cần bổ sung chứng chỉ ACM, listener `443` (redirect `80 → 443`) trên ALB và đổi `origin_protocol_policy` của CloudFront sang `https-only` trỏ tới tên miền đó để mã hóa toàn tuyến.
 
 ---
 

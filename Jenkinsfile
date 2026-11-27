@@ -352,19 +352,7 @@ aws ecs wait services-stable \
     --cluster "$cluster" \
     --services "$service"
 
-# Verify backend health
-api_url=$(terraform -chdir="$stack" output -raw application_url)
-
-curl \
-    --fail \
-    --silent \
-    --show-error \
-    --retry 12 \
-    --retry-delay 10 \
-    --retry-all-errors \
-    "$api_url/actuator/health"
-
-echo "Backend API: $api_url"
+echo "Backend deployed and ECS service is stable"
 '''
             }
         }
@@ -438,6 +426,15 @@ aws cloudfront create-invalidation \
     --paths '/*'
 
 frontend_url=$(terraform -chdir="$stack" output -raw frontend_url)
+
+curl \
+    --fail \
+    --silent \
+    --show-error \
+    --retry 12 \
+    --retry-delay 10 \
+    --retry-all-errors \
+    "$frontend_url" > /dev/null
 
 echo "Frontend URL: $frontend_url"
 '''

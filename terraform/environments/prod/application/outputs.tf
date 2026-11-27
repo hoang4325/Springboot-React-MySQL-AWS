@@ -17,3 +17,8 @@ output "ecs_service_name" {
 output "log_group_name" {
   value = module.ecs_service.log_group_name
 }
+
+output "origin_verify_secret" {
+  value     = random_password.origin_verify.result
+  sensitive = true
+}

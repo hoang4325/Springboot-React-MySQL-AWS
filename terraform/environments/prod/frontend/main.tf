@@ -17,5 +17,9 @@ module "frontend" {
     data.terraform_remote_state.application.outputs.alb_dns_name
   )
 
+  origin_verify_secret = (
+    data.terraform_remote_state.application.outputs.origin_verify_secret
+  )
+
   force_destroy = var.force_destroy
 }
