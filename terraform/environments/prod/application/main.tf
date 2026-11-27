@@ -94,10 +94,14 @@ module "ecs_service" {
   desired_count  = var.desired_count
   max_count      = var.max_count
 
-  cpu    = 256
-  memory = 512
+  cpu    = 512
+  memory = 1024
 
   environment = [
+    {
+      name  = "JAVA_TOOL_OPTIONS"
+      value = "-XX:MaxRAMPercentage=75.0"
+    },
     {
       name  = "SPRING_PROFILES_ACTIVE"
       value = "docker"
