@@ -42,3 +42,8 @@ variable "db_storage_type" {
   type    = string
   default = "gp3"
 }
+
+variable "alert_email" {
+  description = "Email address for RDS CloudWatch SNS alerts"
+  type        = string
+}

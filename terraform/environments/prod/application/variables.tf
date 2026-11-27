@@ -35,3 +35,8 @@ variable "max_count" {
   type    = number
   default = 4
 }
+
+variable "alert_email" {
+  description = "Email address for CloudWatch SNS alerts"
+  type        = string
+}
