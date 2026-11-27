@@ -29,16 +29,6 @@ resource "aws_security_group" "rds" {
   }
 }
 
-resource "aws_security_group" "bastion" {
-  name        = "${var.name}-bastion-sg"
-  description = "Security group for Bastion"
-  vpc_id      = var.vpc_id
-
-  tags = {
-    Name = "${var.name}-bastion-sg"
-  }
-}
-
 # ALB RULES
 data "aws_ec2_managed_prefix_list" "cloudfront" {
   name = "com.amazonaws.global.cloudfront.origin-facing"
@@ -98,42 +88,4 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_ecs" {
   ip_protocol = "tcp"
 
   description = "MySQL from ECS"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "rds_from_bastion" {
-  security_group_id = aws_security_group.rds.id
-
-  referenced_security_group_id = aws_security_group.bastion.id
-
-  from_port   = var.db_port
-  to_port     = var.db_port
-  ip_protocol = "tcp"
-
-  description = "MySQL from Bastion"
-}
-
-# BASTION RULES
-resource "aws_vpc_security_group_ingress_rule" "bastion_ssh" {
-  count = var.admin_cidr == null ? 0 : 1
-
-  security_group_id = aws_security_group.bastion.id
-
-  cidr_ipv4   = var.admin_cidr
-  from_port   = 22
-  to_port     = 22
-  ip_protocol = "tcp"
-
-  description = "SSH from trusted admin IP"
-}
-
-resource "aws_vpc_security_group_egress_rule" "bastion_to_rds" {
-  security_group_id = aws_security_group.bastion.id
-
-  referenced_security_group_id = aws_security_group.rds.id
-
-  from_port   = var.db_port
-  to_port     = var.db_port
-  ip_protocol = "tcp"
-
-  description = "Bastion to RDS"
 }

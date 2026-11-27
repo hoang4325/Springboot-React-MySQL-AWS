@@ -135,15 +135,13 @@ Hệ thống tách riêng Security Group theo từng lớp:
 - **ALB Security Group**
 - **ECS Security Group**
 - **RDS Security Group**
-- **Bastion Security Group** (phục vụ cho thiết kế quản trị DB nếu cần)
 
 ### Luồng truy cập bảo mật
 
-#### Internet → ALB
+#### CloudFront → ALB
 
-- Cho phép:
-  - `HTTP :80`
-  - `HTTPS :443`
+- Chỉ cho phép `HTTP :80` từ AWS Managed Prefix List của CloudFront (`com.amazonaws.global.cloudfront.origin-facing`)
+- ALB chỉ forward request có header bí mật `X-Origin-Verify`, còn lại trả `403 Forbidden`
 
 #### ALB → ECS
 
@@ -154,13 +152,7 @@ Hệ thống tách riêng Security Group theo từng lớp:
 
 - Chỉ ECS Security Group mới được phép kết nối đến RDS qua port:
   - `3306`
-
-#### Bastion → RDS
-
-- Trong thiết kế mở rộng, Bastion có thể được sử dụng để quản trị DB nội bộ
-- Kết nối:
-  - `SSH :22` vào Bastion
-  - `3306` từ Bastion tới RDS
+- Khi cần truy cập DB để quản trị nội bộ, sử dụng **AWS Systems Manager (SSM) Session Manager** (không mở cổng SSH `22` hoặc Bastion host)
 
 ### Ý nghĩa của mô hình security
 

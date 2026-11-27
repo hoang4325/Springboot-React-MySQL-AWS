@@ -31,8 +31,3 @@ variable "db_port" {
   type    = number
   default = 3306
 }
-
-variable "admin_cidr" {
-  type    = string
-  default = null
-}

@@ -32,7 +32,6 @@ module "security_groups" {
   name   = "${var.project_name}-prod"
   vpc_id = module.vpc.vpc_id
 
-  app_port   = var.app_port
-  db_port    = var.db_port
-  admin_cidr = var.admin_cidr
+  app_port = var.app_port
+  db_port  = var.db_port
 }

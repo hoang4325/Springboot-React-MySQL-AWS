@@ -39,7 +39,3 @@ output "ecs_security_group_id" {
 output "rds_security_group_id" {
   value = module.security_groups.rds_sg_id
 }
-
-output "bastion_security_group_id" {
-  value = module.security_groups.bastion_sg_id
-}
